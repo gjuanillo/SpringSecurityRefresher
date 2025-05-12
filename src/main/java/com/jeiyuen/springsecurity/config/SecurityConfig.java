@@ -54,7 +54,9 @@ public class SecurityConfig {
     public UserDetailsService userDetailsService(){
         UserDetails user1 = User.withUsername("user1").password("{noop}demo123").roles("USER").build();
         UserDetails admin = User.withUsername("admin").password("{noop}demo123").roles("ADMIN").build();
+        // Uses JDBC to authenticate users
         JdbcUserDetailsManager jdbcUserDetailsManager = new JdbcUserDetailsManager(dataSource);
+        // create user temporarily
         jdbcUserDetailsManager.createUser(user1);
         jdbcUserDetailsManager.createUser(admin);
         return jdbcUserDetailsManager;
