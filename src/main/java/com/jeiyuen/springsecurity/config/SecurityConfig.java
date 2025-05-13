@@ -6,6 +6,7 @@ import com.jeiyuen.springsecurity.jwt.AuthEntryPointJwt;
 import com.jeiyuen.springsecurity.jwt.AuthTokenFilter;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -71,16 +72,30 @@ public class SecurityConfig {
     }
 
     @Bean
-    public UserDetailsService userDetailsService(){
-        UserDetails user1 = User.withUsername("user1").password(passwordEncoder().encode("demo123")).roles("USER").build();
-        UserDetails admin = User.withUsername("admin").password(passwordEncoder().encode("demo123")).roles("ADMIN").build();
-        // Uses JDBC to authenticate users
-        JdbcUserDetailsManager jdbcUserDetailsManager = new JdbcUserDetailsManager(dataSource);
-        // create user temporarily
-        jdbcUserDetailsManager.createUser(user1);
-        jdbcUserDetailsManager.createUser(admin);
-        return jdbcUserDetailsManager;
+    public UserDetailsService userDetailsService(DataSource dataSource){
+        return new JdbcUserDetailsManager(dataSource);
         // return new InMemoryUserDetailsManager(user1, admin);
+    }
+
+    @Bean
+    public CommandLineRunner initData(UserDetailsService userDetailsService){
+        return args -> {
+            JdbcUserDetailsManager manager = (JdbcUserDetailsManager) userDetailsService;
+            UserDetails user1 = User
+                .withUsername("user1")
+                .password(passwordEncoder().encode("demo123"))
+                .roles("USER")
+                .build();
+            UserDetails admin = User
+                .withUsername("admin")
+                .password(passwordEncoder().encode("demo123"))
+                .roles("ADMIN")
+                .build();
+
+            JdbcUserDetailsManager userDetailsManager = new JdbcUserDetailsManager(dataSource);
+            userDetailsManager.createUser(user1);
+            userDetailsManager.createUser(admin);
+        };
     }
 
     @Bean
