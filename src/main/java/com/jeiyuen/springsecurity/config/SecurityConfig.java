@@ -1,12 +1,15 @@
 package com.jeiyuen.springsecurity.config;
 
-import static org.springframework.security.config.Customizer.withDefaults;
-
 import javax.sql.DataSource;
+
+import com.jeiyuen.springsecurity.jwt.AuthEntryPointJwt;
+import com.jeiyuen.springsecurity.jwt.AuthTokenFilter;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -18,6 +21,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.provisioning.JdbcUserDetailsManager;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
@@ -25,10 +29,17 @@ import org.springframework.security.web.SecurityFilterChain;
 public class SecurityConfig {
 
     DataSource dataSource;
+    private AuthEntryPointJwt unauthorizedHandler;
 
     @Autowired
-    SecurityConfig(DataSource dataSource){
+    public SecurityConfig(DataSource dataSource, AuthEntryPointJwt unauthorizedHandler) {
         this.dataSource = dataSource;
+        this.unauthorizedHandler = unauthorizedHandler;
+    }
+
+    @Bean
+    public AuthTokenFilter authenticationJwtTokenFilter(){
+        return new AuthTokenFilter();
     }
 
     @Bean
@@ -36,6 +47,7 @@ public class SecurityConfig {
         // Setups the security config to have any request be authenticated
         http.authorizeHttpRequests((requests) -> requests
                 // Custom authorization (Permit role/all based on url)
+                .requestMatchers("/signin").permitAll()
                 .requestMatchers("/h2-console/**").permitAll()
                 .anyRequest()
                 .authenticated());
@@ -43,11 +55,17 @@ public class SecurityConfig {
         http.sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
         // Setups the security config to have a basic authentication
         // Passes default security configuration (login with predefined credentials/defined credentials on app.props)
-        http.httpBasic(withDefaults());
+        // http.httpBasic(withDefaults());
+
+        // Use created authEntryPointJwt to handle unauthorized exception
+        http.exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler));
         // Allow iframes to be displayed but only with the same origin
         http.headers(headers -> headers.frameOptions(frameOptions -> frameOptions.sameOrigin()));
         // Disable cross-site request forgery protection
         http.csrf(csrf -> csrf.disable());
+
+        http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
+
         // Builds the HTTP Security config and returns the bean as a SecurityFilterChain type
         return http.build();
     }
@@ -68,5 +86,10 @@ public class SecurityConfig {
     @Bean
     public PasswordEncoder passwordEncoder(){
         return new BCryptPasswordEncoder();
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(AuthenticationConfiguration builder) throws Exception {
+        return builder.getAuthenticationManager();
     }
 }
